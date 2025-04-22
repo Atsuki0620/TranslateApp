@@ -54,11 +54,14 @@ def main():
     if df is None:
         return
 
-    # === 追加箇所（データの最初の10行表示） ===
     st.subheader("📝 アップロードデータの確認（先頭10行）")
     st.dataframe(df.head(10))
 
-    column_to_translate = st.selectbox("▶ 翻訳対象の列を選択", df.columns)
+    columns_to_translate = st.multiselect("▶ 翻訳対象の列を複数選択できます", df.columns)
+    if not columns_to_translate:
+        st.warning("翻訳する列を1つ以上選択してください。")
+        return
+
     sleep_time = st.number_input(
         "⏱ 翻訳間隔(秒)（推奨:1.0〜3.0秒）",
         min_value=0.5, max_value=5.0, value=1.0, step=0.5, format="%.1f"
@@ -66,22 +69,25 @@ def main():
 
     if st.button("🚀 翻訳開始"):
         translator = Translator()
-        translations: list[str] = []
-        total = len(df)
+        total_tasks = len(df) * len(columns_to_translate)
+        current_task = 0
         progress = st.progress(0.0)
         error_count = 0
 
         with st.spinner("🔄 翻訳中…しばらくお待ちください"):
-            for idx, cell in enumerate(df[column_to_translate].astype(str), start=1):
-                result = safe_translate(translator, cell, dest='ja')
-                if result.startswith("[翻訳失敗"):
-                    error_count += 1
-                translations.append(result)
-                progress.progress(idx / total)
-                time.sleep(sleep_time)
+            for col in columns_to_translate:
+                translations = []
+                for cell in df[col].astype(str):
+                    result = safe_translate(translator, cell, dest='ja')
+                    if result.startswith("[翻訳失敗"):
+                        error_count += 1
+                    translations.append(result)
+                    current_task += 1
+                    progress.progress(current_task / total_tasks)
+                    time.sleep(sleep_time)
+                df[f"{col}_JP"] = translations
 
-        df[f"{column_to_translate}_JP"] = translations
-        st.success(f"✅ 翻訳完了 （エラー件数: {error_count}）")
+        st.success(f"✅ 翻訳完了（エラー件数: {error_count}）")
         st.dataframe(df)
 
         # Excelで出力

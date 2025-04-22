@@ -7,20 +7,20 @@ import time
 # ─── ユーティリティ関数 ─────────────────────────────────
 
 @st.cache_data
-def load_excel(file) -> pd.DataFrame | None:
-    """Excel読み込み。失敗時はNoneを返し、画面にエラー表示。"""
+def load_file(file) -> pd.DataFrame | None:
+    """ExcelまたはCSVを読み込み。エラー時はNoneを返す。"""
     try:
-        return pd.read_excel(file)
+        if file.name.endswith('.csv'):
+            return pd.read_csv(file)
+        else:
+            return pd.read_excel(file)
     except Exception as e:
-        st.error(f"📄 Excel読み込みエラー: {e}")
+        st.error(f"📄 ファイル読み込みエラー: {e}")
         return None
 
 def safe_translate(translator: Translator, text: str, dest: str = 'ja',
                    retries: int = 3, delay: float = 1.0) -> str:
-    """
-    ・最大4500文字ずつにチャンク分割して翻訳  
-    ・各チャンクでリトライを行い、最終的に失敗した場合はエラーを注記  
-    """
+    """翻訳を安全に行うための関数（エラー処理＋リトライ）"""
     if not text:
         return ""
     max_len = 4500
@@ -37,26 +37,26 @@ def safe_translate(translator: Translator, text: str, dest: str = 'ja',
                     time.sleep(delay)
                 else:
                     translated += f"[翻訳失敗: {e}]"
-        # 各チャンク後のインターバル（API負荷軽減）
         time.sleep(delay)
     return translated
 
 # ─── メイン処理 ─────────────────────────────────────────
 
 def main():
-    st.title("多言語対応 Excel自動翻訳アプリ")
+    st.title("🤖 多言語対応 Excel・CSV自動翻訳アプリ")
 
-    uploaded_file = st.file_uploader("📤 Excelファイルをアップロード", type=['xlsx', 'xls'])
+    uploaded_file = st.file_uploader("📤 ExcelまたはCSVをアップロード", type=['xlsx', 'xls', 'csv'])
     if not uploaded_file:
-        st.info("まずはファイルをアップロードしてください。")
+        st.info("まずファイルをアップロードしてください。")
         return
 
-    df = load_excel(uploaded_file)
+    df = load_file(uploaded_file)
     if df is None:
         return
 
-    st.write("### アップロードデータ例")
-    st.dataframe(df.head(5))
+    # === 追加箇所（データの最初の10行表示） ===
+    st.subheader("📝 アップロードデータの確認（先頭10行）")
+    st.dataframe(df.head(10))
 
     column_to_translate = st.selectbox("▶ 翻訳対象の列を選択", df.columns)
     sleep_time = st.number_input(
@@ -84,7 +84,7 @@ def main():
         st.success(f"✅ 翻訳完了 （エラー件数: {error_count}）")
         st.dataframe(df)
 
-        # ── Excel書き出し & ダウンロード ──
+        # Excelで出力
         output = BytesIO()
         try:
             with pd.ExcelWriter(output, engine='openpyxl') as writer:

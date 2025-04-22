@@ -44,7 +44,7 @@ def safe_translate(translator: Translator, text: str, dest: str = 'ja',
 # ─── メイン処理 ─────────────────────────────────────────
 
 def main():
-    st.title("🈹 多言語対応 Excel自動翻訳アプリ")
+    st.title("多言語対応 Excel自動翻訳アプリ")
 
     uploaded_file = st.file_uploader("📤 Excelファイルをアップロード", type=['xlsx', 'xls'])
     if not uploaded_file:
